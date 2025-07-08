@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الطلب الذكي - مطعم نبلة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FF6B35',
+                        secondary: '#1A936F',
+                        dark: '#114B5F',
+                        light: '#F3E9D2'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+        
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .category-btn.active {
+            background-color: #FF6B35;
+            color: white;
+        }
+        
+        .cart-item {
+            transition: all 0.3s ease;
+        }
+        
+        .cart-item:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .menu-item {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .menu-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .qr-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .order-step {
+            transition: all 0.3s ease;
+        }
+        
+        .order-step.active {
+            border-color: #1A936F;
+            background-color: rgba(26, 147, 111, 0.1);
+        }
+        
+        .food-image {
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f0f0f0;
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .payment-method {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .payment-method:hover, .payment-method.selected {
+            border-color: #FF6B35;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- شاشة البداية -->
+    <div id="welcomeScreen" class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary to-secondary p-4 text-white">
+        <div class="text-center max-w-2xl">
+            <img src="https://cdn-icons-png.flaticon.com/512/3081/3081981.png" alt="Restaurant Logo" class="w-32 h-32 mx-auto mb-6">
+            <h1 class="text-4xl md:text-6xl font-bold mb-6">مرحبًا فيك في مطعم نبلة</h1>
+            <p class="text-xl mb-8">اختر طريقة الطلب المناسبة لك</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-md mx-auto">
+                <button onclick="showScreen('kioskScreen')" class="bg-white text-dark py-4 px-6 rounded-xl shadow-lg hover:bg-gray-100 transition-all transform hover:scale-105">
+                    <i class="fas fa-touchscreen text-3xl mb-3"></i>
+                    <h3 class="font-bold text-xl">شاشة الطلب الذاتي</h3>
+                    <p class="mt-2 text-gray-600">استخدم شاشة اللمس للطلب</p>
+                </button>
+                
+                <button onclick="showScreen('qrScreen')" class="bg-white text-dark py-4 px-6 rounded-xl shadow-lg hover:bg-gray-100 transition-all transform hover:scale-105">
+                    <i class="fas fa-qrcode text-3xl mb-3"></i>
+                    <h3 class="font-bold text-xl">الطلب عبر الهاتف</h3>
+                    <p class="mt-2 text-gray-600">امسح رمز QR للطلب</p>
+                </button>
+            </div>
+            
+            <div class="mt-12 text-sm text-white/80">
+                <p>يوفر نظامنا طلبًا سريعًا وسهلاً مع خيارات دفع متعددة</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- شاشة الكيوسك -->
+    <div id="kioskScreen" class="min-h-screen hidden">
+        <!-- شريط العنوان -->
+        <header class="bg-dark text-white py-4 px-6 flex justify-between items-center shadow-md">
+            <button onclick="showScreen('welcomeScreen')" class="bg-secondary hover:bg-secondary/90 py-2 px-4 rounded-lg flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i> العودة
+            </button>
+            <h1 class="text-2xl font-bold">شاشة الطلب الذاتي</h1>
+            <div class="flex items-center">
+                <button id="cartButton" class="relative bg-primary hover:bg-primary/90 py-2 px-4 rounded-lg flex items-center">
+                    <i class="fas fa-shopping-cart mr-2"></i> السلة
+                    <span id="cartCount" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">0</span>
+                </button>
+            </div>
+        </header>
+        
+        <!-- المحتوى الرئيسي -->
+        <div class="flex flex-col md:flex-row h-[calc(100vh-80px)]">
+            <!-- التصنيفات -->
+            <div class="w-full md:w-1/5 bg-white shadow-inner p-4 overflow-y-auto">
+                <h2 class="font-bold text-xl mb-4 text-dark border-b pb-2">التصنيفات</h2>
+                <div class="space-y-2">
+                    <button class="category-btn w-full text-right py-3 px-4 rounded-lg active" data-category="all">
+                        <i class="fas fa-utensils ml-2"></i> جميع الأصناف
+                    </button>
+                    <button class="category-btn w-full text-right py-3 px-4 rounded-lg" data-category="main">
+                        <i class="fas fa-drumstick-bite ml-2"></i> الأطباق الرئيسية
+                    </button>
+                    <button class="category-btn w-full text-right py-3 px-4 rounded-lg" data-category="appetizers">
+                        <i class="fas fa-carrot ml-2"></i> المقبلات
+                    </button>
+                    <button class="category-btn w-full text-right py-3 px-4 rounded-lg" data-category="drinks">
+                        <i class="fas fa-glass-martini ml-2"></i> المشروبات
+                    </button>
+                    <button class="category-btn w-full text-right py-3 px-4 rounded-lg" data-category="desserts">
+                        <i class="fas fa-ice-cream ml-2"></i> الحلويات
+                    </button>
+                </div>
+            </div>
+            
+            <!-- قائمة الطعام -->
+            <div class="w-full md:w-3/5 bg-gray-50 p-4 overflow-y-auto">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- سيتم ملئها بالعناصر من JavaScript -->
+                </div>
+            </div>
+            
+            <!-- السلة -->
+            <div class="w-full md:w-1/5 bg-white shadow-inner p-4 overflow-y-auto">
+                <h2 class="font-bold text-xl mb-4 text-dark border-b pb-2">سلة الطلبات</h2>
+                <div id="cartItems" class="space-y-3">
+                    <!-- سيتم ملئها بالعناصر من JavaScript -->
+                    <p id="emptyCartMessage" class="text-center text-gray-500 py-8">السلة فارغة</p>
+                </div>
+                
+                <div class="mt-6 pt-4 border-t">
+                    <div class="flex justify-between mb-2">
+                        <span>المجموع:</span>
+                        <span id="cartTotal">0.00 ر.س</span>
+                    </div>
+                    <div class="flex justify-between mb-2 text-green-600">
+                        <span>الخصم:</span>
+                        <span id="cartDiscount">0.00 ر.س</span>
+                    </div>
+                    <div class="flex justify-between mb-4 font-bold text-lg">
+                        <span>الإجمالي:</span>
+                        <span id="cartGrandTotal">0.00 ر.س</span>
+                    </div>
+                    <button onclick="showScreen('paymentScreen')" class="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-lg font-bold disabled:opacity-50" id="checkoutButton" disabled>
+                        اتمام الطلب والدفع
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- شاشة رمز QR -->
+    <div id="qrScreen" class="min-h-screen hidden flex flex-col items-center justify-center bg-gradient-to-br from-secondary to-dark p-4 text-white">
+        <div class="text-center max-w-2xl">
+            <h1 class="text-4xl md:text-5xl font-bold mb-6">الطلب عبر الهاتف</h1>
+            <p class="text-xl mb-8">امسح رمز QR الموجود على طاولتك للبدء في الطلب</p>
+            
+            <div class="bg-white p-6 rounded-2xl shadow-xl inline-block mb-8">
+                <div class="qr-animation">
+                    <div class="bg-gray-200 border-2 border-dashed rounded-xl w-64 h-64 flex items-center justify-center">
+                        <div class="text-center">
+                            <i class="fas fa-qrcode text-7xl text-gray-400 mb-3"></i>
+                            <p class="text-gray-500">رمز QR للطاولة #5</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6">
+                <button onclick="showScreen('mobileOrderScreen')" class="bg-primary hover:bg-primary/90 text-white py-3 px-8 rounded-lg font-bold">
+                    تجربة الطلب عبر الهاتف
+                </button>
+            </div>
+            
+            <div class="mt-12">
+                <button onclick="showScreen('welcomeScreen')" class="text-white/80 hover:text-white">
+                    <i class="fas fa-arrow-left mr-2"></i> العودة للصفحة الرئيسية
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- شاشة الطلب عبر الهاتف -->
+    <div id="mobileOrderScreen" class="min-h-screen hidden">
+        <!-- شريط العنوان -->
+        <header class="bg-dark text-white py-4 px-6 flex justify-between items-center shadow-md">
+            <button onclick="showScreen('qrScreen')" class="bg-secondary hover:bg-secondary/90 py-2 px-4 rounded-lg flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i> العودة
+            </button>
+            <h1 class="text-xl font-bold">الطلب عبر الهاتف - الطاولة #5</h1>
+            <div class="flex items-center">
+                <button id="mobileCartButton" class="relative bg-primary hover:bg-primary/90 py-2 px-4 rounded-lg flex items-center">
+                    <i class="fas fa-shopping-cart mr-2"></i>
+                    <span id="mobileCartCount" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">0</span>
+                </button>
+            </div>
+        </header>
+        
+        <!-- المحتوى الرئيسي -->
+        <div class="p-4">
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <button class="category-btn-mobile py-3 px-4 rounded-lg bg-white shadow text-center active" data-category="all">
+                    <i class="fas fa-utensils block text-2xl mb-2"></i> الكل
+                </button>
+                <button class="category-btn-mobile py-3 px-4 rounded-lg bg-white shadow text-center" data-category="main">
+                    <i class="fas fa-drumstick-bite block text-2xl mb-2"></i> رئيسية
+                </button>
+                <button class="category-btn-mobile py-3 px-4 rounded-lg bg-white shadow text-center" data-category="appetizers">
+                    <i class="fas fa-carrot block text-2xl mb-2"></i> مقبلات
+                </button>
+                <button class="category-btn-mobile py-3 px-4 rounded-lg bg-white shadow text-center" data-category="drinks">
+                    <i class="fas fa-glass-martini block text-2xl mb-2"></i> مشروبات
+                </button>
+                <button class="category-btn-mobile py-3 px-4 rounded-lg bg-white shadow text-center" data-category="desserts">
+                    <i class="fas fa-ice-cream block text-2xl mb-2"></i> حلويات
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 gap-4" id="mobileMenuItems">
+                <!-- سيتم ملئها بالعناصر من JavaScript -->
+            </div>
+        </div>
+        
+        <!-- سلة الطلبات المنبثقة -->
+        <div id="mobileCartPopup" class="fixed bottom-0 left-0 right-0 bg-white shadow-lg rounded-t-2xl hidden">
+            <div class="p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg">سلة الطلبات</h3>
+                    <button id="closeCartPopup" class="text-gray-500">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="mobileCartItems" class="max-h-60 overflow-y-auto space-y-3">
+                    <!-- سيتم ملئها بالعناصر من JavaScript -->
+                </div>
+                
+                <div class="mt-4 pt-4 border-t">
+                    <div class="flex justify-between mb-2">
+                        <span>المجموع:</span>
+                        <span id="mobileCartTotal">0.00 ر.س</span>
+                    </div>
+                    <div class="flex justify-between mb-2 text-green-600">
+                        <span>الخصم:</span>
+                        <span id="mobileCartDiscount">0.00 ر.س</span>
+                    </div>
+                    <div class="flex justify-between mb-4 font-bold text-lg">
+                        <span>الإجمالي:</span>
+                        <span id="mobileCartGrandTotal">0.00 ر.س</span>
+                    </div>
+                    <button onclick="showScreen('paymentScreen')" class="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-lg font-bold disabled:opacity-50" id="mobileCheckoutButton" disabled>
+                        اتمام الطلب والدفع
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- شاشة الدفع -->
+    <div id="paymentScreen" class="min-h-screen hidden">
+        <!-- شريط العنوان -->
+        <header class="bg-dark text-white py-4 px-6 flex justify-between items-center shadow-md">
+            <button onclick="showPreviousScreen()" class="bg-secondary hover:bg-secondary/90 py-2 px-4 rounded-lg flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i> العودة
+            </button>
+            <h1 class="text-xl font-bold">إتمام الطلب والدفع</h1>
+            <div></div>
+        </header>
+        
+        <!-- خطوات الطلب -->
+        <div class="p-4">
+            <div class="flex justify-between mb-8 max-w-2xl mx-auto">
+                <div class="order-step w-1/4 text-center p-4 border-2 border-gray-300 rounded-lg active">
+                    <div class="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-2">1</div>
+                    <p>تأكيد الطلب</p>
+                </div>
+                <div class="order-step w-1/4 text-center p-4 border-2 border-gray-300 rounded-lg">
+                    <div class="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center mx-auto mb-2">2</div>
+                    <p>طريقة الدفع</p>
+                </div>
+                <div class="order-step w-1/4 text-center p-4 border-2 border-gray-300 rounded-lg">
+                    <div class="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center mx-auto mb-2">3</div>
+                    <p>تأكيد الدفع</p>
+                </div>
+                <div class="order-step w-1/4 text-center p-4 border-2 border-gray-300 rounded-lg">
+                    <div class="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center mx-auto mb-2">4</div>
+                    <p>الانتهاء</p>
+                </div>
+            </div>
+            
+            <!-- تفاصيل الطلب -->
+            <div class="bg-white rounded-xl shadow-md p-6 max-w-2xl mx-auto mb-6">
+                <h2 class="font-bold text-xl mb-4">تفاصيل الطلب</h2>
+                <div id="orderSummary">
+                    <!-- سيتم ملئها بالعناصر من JavaScript -->
+                </div>
+                <div class="mt-4 pt-4 border-t">
+                    <div class="flex justify-between mb-2">
+                        <span>المجموع:</span>
+                        <span id="orderTotal">0.00 ر.س</span>
+                    </div>
+                    <div class="flex justify-between mb-2 text-green-600">
+                        <span>الخصم:</span>
+                        <span id="orderDiscount">0.00 ر.س</span>
+                    </div>
+                    <div class="flex justify-between mb-4 font-bold text-lg">
+                        <span>الإجمالي:</span>
+                        <span id="orderGrandTotal">0.00 ر.س</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- طرق الدفع -->
+            <div class="bg-white rounded-xl shadow-md p-6 max-w-2xl mx-auto">
+                <h2 class="font-bold text-xl mb-4">اختر طريقة الدفع</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button class="payment-method border-2 border-gray-300 rounded-lg p-4 text-center" data-method="credit">
+                        <i class="fas fa-credit-card text-3xl text-blue-500 mb-2"></i>
+                        <h3 class="font-bold">بطاقة ائتمان</h3>
+                    </button>
+                    <button class="payment-method border-2 border-gray-300 rounded-lg p-4 text-center" data-method="wallet">
+                        <i class="fas fa-mobile-alt text-3xl text-green-500 mb-2"></i>
+                        <h3 class="font-bold">محفظة إلكترونية</h3>
+                    </button>
+                    <button class="payment-method border-2 border-gray-300 rounded-lg p-4 text-center" data-method="mada">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Mada_Logo.svg/1200px-Mada_Logo.svg.png" alt="Mada" class="h-8 mx-auto mb-2">
+                        <h3 class="font-bold">مدى</h3>
+                    </button>
+                    <button class="payment-method border-2 border-gray-300 rounded-lg p-4 text-center" data-method="applepay">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Apple_Pay_logo.svg/1200px-Apple_Pay_logo.svg.png" alt="Apple Pay" class="h-8 mx-auto mb-2">
+                        <h3 class="font-bold">ابل باي</h3>
+                    </button>
+                    <button class="payment-method border-2 border-gray-300 rounded-lg p-4 text-center" data-method="qr">
+                        <i class="fas fa-qrcode text-3xl text-purple-500 mb-2"></i>
+                        <h3 class="font-bold">الدفع برمز QR</h3>
+                    </button>
+                    <button class="payment-method border-2 border-gray-300 rounded-lg p-4 text-center" data-method="cash">
+                        <i class="fas fa-money-bill-wave text-3xl text-green-500 mb-2"></i>
+                        <h3 class="font-bold">الدفع عند الاستلام</h3>
+                    </button>
+                </div>
+                
+                <div class="mt-6">
+                    <button id="confirmPayment" class="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-lg font-bold">
+                        تأكيد الدفع
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // بيانات القائمة
+        const menuItems = [
+            { id: 1, name: "برجر لحم بقري", description: "برجر لحم بقري مع جبنة شيدر وخس وطماطم", price: 25.00, category: "main", image: "burger" },
+            { id: 2, name: "سيزر سلطة", description: "سلطة سيزر مع دجاج مشوي وخبز محمص", price: 18.00, category: "appetizers", image: "salad" },
+            { id: 3, name: "مشروب ليمون بالنعناع", description: "مشروب ليمون طازج مع أوراق نعناع", price: 8.00, category: "drinks", image: "lemonade" },
+            { id: 4, name: "تشيز كيك", description: "تشيز كيك بالتوت الطازج", price: 12.00, category: "desserts", image: "cheesecake" },
+            { id: 5, name: "بيتزا مارغريتا", description: "بيتزا مارغريتا مع جبنة موزاريلا وريحان", price: 30.00, category: "main", image: "pizza" },
+            { id: 6, name: "ساندويتش دجاج", description: "ساندويتش دجاج مشوي مع خضار طازجة", price: 20.00, category: "main", image: "sandwich" },
+            { id: 7, name: "سبرينغ رول", description: "سبرينغ رول نباتي مع صلصة حلوة وحارة", price: 15.00, category: "appetizers", image: "springroll" },
+            { id: 8, name: "قهوة اسبريسو", description: "قهوة اسبريسو إيطالية", price: 10.00, category: "drinks", image: "coffee" },
+            { id: 9, name: "آيس كريم شوكولاتة", description: "آيس كريم شوكولاتة مع قطع شوكولاتة", price: 9.00, category: "desserts", image: "icecream" },
+            { id: 10, name: "ستيك لحم", description: "ستيك لحم مع بطاطس مشوية وخضار", price: 45.00, category: "main", image: "steak" }
+        ];
+        
+        // متغيرات الحالة
+        let cart = [];
+        let currentScreen = "welcomeScreen";
+        let previousScreen = "welcomeScreen";
+        let selectedPaymentMethod = null;
+        
+        // عناصر DOM
+        const screens = {
+            welcomeScreen: document.getElementById('welcomeScreen'),
+            kioskScreen: document.getElementById('kioskScreen'),
+            qrScreen: document.getElementById('qrScreen'),
+            mobileOrderScreen: document.getElementById('mobileOrderScreen'),
+            paymentScreen: document.getElementById('paymentScreen')
+        };
+        
+        // وظائف التحكم بالشاشات
+        function showScreen(screenId) {
+            previousScreen = currentScreen;
+            currentScreen = screenId;
+            
+            // إخفاء جميع الشاشات
+            Object.values(screens).forEach(screen => {
+                screen.classList.add('hidden');
+            });
+            
+            // إظهار الشاشة المطلوبة
+            screens[screenId].classList.remove('hidden');
+            
+            // إذا كانت شاشة الكيوسك أو الطلب عبر الهاتف، نقوم بتحميل القائمة
+            if (screenId === 'kioskScreen' || screenId === 'mobileOrderScreen') {
+                renderMenuItems();
+                updateCart();
+            }
+            
+            // إذا كانت شاشة الدفع، نقوم بتحميل ملخص الطلب
+            if (screenId === 'paymentScreen') {
+                renderOrderSummary();
+                selectedPaymentMethod = null;
+                document.querySelectorAll('.payment-method').forEach(method => {
+                    method.classList.remove('selected');
+                });
+            }
+        }
+        
+        function showPreviousScreen() {
+            showScreen(previousScreen);
+        }
+        
+        // وظائف القائمة والسلة
+        function renderMenuItems() {
+            const menuContainer = currentScreen === 'kioskScreen' 
+                ? document.querySelector('#kioskScreen .grid') 
+                : document.getElementById('mobileMenuItems');
+            
+            const activeCategory = document.querySelector('.category-btn.active, .category-btn-mobile.active')?.dataset.category || 'all';
+            
+            menuContainer.innerHTML = '';
+            
+            const filteredItems = activeCategory === 'all' 
+                ? menuItems 
+                : menuItems.filter(item => item.category === activeCategory);
+            
+            filteredItems.forEach(item => {
+                const itemElement = document.createElement('div');
+                itemElement.className = currentScreen === 'kioskScreen' 
+                    ? 'menu-item bg-white rounded-xl shadow overflow-hidden'
+                    : 'menu-item bg-white rounded-xl shadow overflow-hidden';
+                
+                itemElement.innerHTML = `
+                    <div class="food-image">
+                        <div class="bg-gray-200 border-2 border-dashed rounded-xl w-full h-full flex items-center justify-center">
+                            <i class="fas fa-${item.image} text-5xl text-gray-400"></i>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-lg text-dark">${item.name}</h3>
+                        <p class="text-gray-600 text-sm mt-1">${item.description}</p>
+                        <div class="flex justify-between items-center mt-3">
+                            <span class="font-bold text-primary">${item.price.toFixed(2)} ر.س</span>
+                            <button onclick="addToCart(${item.id})" class="bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-lg">
+                                <i class="fas fa-plus"></i> إضافة
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                menuContainer.appendChild(itemElement);
+            });
+        }
+        
+        function addToCart(itemId) {
+            const item = menuItems.find(i => i.id === itemId);
+            const existingItem = cart.find(i => i.id === itemId);
+            
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({
+                    ...item,
+                    quantity: 1
+                });
+            }
+            
+            updateCart();
+            
+            // إذا كان في شاشة الهاتف، نفتح السلة تلقائيًا
+            if (currentScreen === 'mobileOrderScreen') {
+                document.getElementById('mobileCartPopup').classList.remove('hidden');
+            }
+        }
+        
+        function removeFromCart(itemId) {
+            cart = cart.filter(item => item.id !== itemId);
+            updateCart();
+        }
+        
+        function updateCart() {
+            // تحديث عدد العناصر في السلة
+            const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+            document.getElementById('cartCount').textContent = cartCount;
+            document.getElementById('mobileCartCount').textContent = cartCount;
+            
+            // تحديث زر الدفع
+            document.getElementById('checkoutButton').disabled = cartCount === 0;
+            document.getElementById('mobileCheckoutButton').disabled = cartCount === 0;
+            
+            // تحديث عناصر السلة
+            const cartItemsContainer = document.getElementById('cartItems');
+            const mobileCartItemsContainer = document.getElementById('mobileCartItems');
+            
+            cartItemsContainer.innerHTML = '';
+            mobileCartItemsContainer.innerHTML = '';
+            
+            if (cart.length === 0) {
+                cartItemsContainer.innerHTML = '<p id="emptyCartMessage" class="text-center text-gray-500 py-8">السلة فارغة</p>';
+                mobileCartItemsContainer.innerHTML = '<p class="text-center text-gray-500 py-4">السلة فارغة</p>';
+                return;
+            }
+            
+            // حساب المجاميع
+            let total = 0;
+            
+            cart.forEach(item => {
+                const itemTotal = item.price * item.quantity;
+                total += itemTotal;
+                
+                const cartItemElement = document.createElement('div');
+                cartItemElement.className = 'cart-item bg-gray-50 rounded-lg p-3';
+                cartItemElement.innerHTML = `
+                    <div class="flex justify-between">
+                        <div>
+                            <h4 class="font-bold">${item.name}</h4>
+                            <div class="flex items-center mt-1">
+                                <button onclick="updateQuantity(${item.id}, ${item.quantity - 1})" class="text-gray-500 w-6 h-6 flex items-center justify-center">
+                                    <i class="fas fa-minus text-xs"></i>
+                                </button>
+                                <span class="mx-2">${item.quantity}</span>
+                                <button onclick="updateQuantity(${item.id}, ${item.quantity + 1})" class="text-gray-500 w-6 h-6 flex items-center justify-center">
+                                    <i class="fas fa-plus text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-bold text-primary">${itemTotal.toFixed(2)} ر.س</span>
+                            <button onclick="removeFromCart(${item.id})" class="text-red-500 mt-1 block">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                cartItemsContainer.appendChild(cartItemElement);
+                
+                // نسخة للسلة في شاشة الهاتف
+                const mobileCartItemElement = cartItemElement.cloneNode(true);
+                mobileCartItemsContainer.appendChild(mobileCartItemElement);
+            });
+            
+            // حساب الخصم (10% إذا تجاوز المجموع 50 ريال)
+            const discount = total > 50 ? total * 0.1 : 0;
+            const grandTotal = total - discount;
+            
+            // تحديث المجاميع
+            document.getElementById('cartTotal').textContent = total.toFixed(2) + ' ر.س';
+            document.getElementById('cartDiscount').textContent = discount.toFixed(2) + ' ر.س';
+            document.getElementById('cartGrandTotal').textContent = grandTotal.toFixed(2) + ' ر.س';
+            
+            document.getElementById('mobileCartTotal').textContent = total.toFixed(2) + ' ر.س';
+            document.getElementById('mobileCartDiscount').textContent = discount.toFixed(2) + ' ر.س';
+            document.getElementById('mobileCartGrandTotal').textContent = grandTotal.toFixed(2) + ' ر.س';
+        }
+        
+        function updateQuantity(itemId, newQuantity) {
+            if (newQuantity < 1) {
+                removeFromCart(itemId);
+                return;
+            }
+            
+            const item = cart.find(i => i.id === itemId);
+            if (item) {
+                item.quantity = newQuantity;
+                updateCart();
+            }
+        }
+        
+        function renderOrderSummary() {
+            const orderSummaryContainer = document.getElementById('orderSummary');
+            orderSummaryContainer.innerHTML = '';
+            
+            if (cart.length === 0) return;
+            
+            let total = 0;
+            
+            cart.forEach(item => {
+                const itemTotal = item.price * item.quantity;
+                total += itemTotal;
+                
+                const itemElement = document.createElement('div');
+                itemElement.className = 'flex justify-between py-2 border-b';
+                itemElement.innerHTML = `
+                    <div>
+                        <h4 class="font-bold">${item.name}</h4>
+                        <p class="text-gray-600 text-sm">${item.quantity} × ${item.price.toFixed(2)} ر.س</p>
+                    </div>
+                    <span class="font-bold">${itemTotal.toFixed(2)} ر.س</span>
+                `;
+                
+                orderSummaryContainer.appendChild(itemElement);
+            });
+            
+            // حساب الخصم
+            const discount = total > 50 ? total * 0.1 : 0;
+            const grandTotal = total - discount;
+            
+            // تحديث المجاميع
+            document.getElementById('orderTotal').textContent = total.toFixed(2) + ' ر.س';
+            document.getElementById('orderDiscount').textContent = discount.toFixed(2) + ' ر.س';
+            document.getElementById('orderGrandTotal').textContent = grandTotal.toFixed(2) + ' ر.س';
+        }
+        
+        // تهيئة الأحداث
+        document.addEventListener('DOMContentLoaded', () => {
+            // أحداث التصنيفات
+            document.querySelectorAll('.category-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    renderMenuItems();
+                });
+            });
+            
+            document.querySelectorAll('.category-btn-mobile').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('.category-btn-mobile').forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    renderMenuItems();
+                });
+            });
+            
+            // أحداث السلة في شاشة الهاتف
+            document.getElementById('mobileCartButton').addEventListener('click', function() {
+                document.getElementById('mobileCartPopup').classList.remove('hidden');
+            });
+            
+            document.getElementById('closeCartPopup').addEventListener('click', function() {
+                document.getElementById('mobileCartPopup').classList.add('hidden');
+            });
+            
+            // أحداث طرق الدفع
+            document.querySelectorAll('.payment-method').forEach(method => {
+                method.addEventListener('click', function() {
+                    document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedPaymentMethod = this.dataset.method;
+                });
+            });
+            
+            // حدث تأكيد الدفع
+            document.getElementById('confirmPayment').addEventListener('click', function() {
+                if (!selectedPaymentMethod) {
+                    alert('الرجاء اختيار طريقة دفع');
+                    return;
+                }
+                
+                alert('تم تأكيد طلبك بنجاح! شكرًا لاستخدامك نظام الطلب الذاتي.');
+                // إعادة تعيين النظام
+                cart = [];
+                updateCart();
+                showScreen('welcomeScreen');
+            });
+            
+            // تهيئة القائمة والسلة
+            renderMenuItems();
+            updateCart();
+        });
+    </script>
+</body>
+</html>
